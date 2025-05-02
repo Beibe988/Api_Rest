@@ -1,0 +1,32 @@
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
+
+@layer utilities {
+  .custom-container {
+    @apply w-full bg-gray-200 p-4;
+  }
+
+  .perspective {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+
+  .rotate-on-hover {
+    transition: transform 0.8s ease-in-out;
+  }
+
+  .group:hover .rotate-on-hover {
+    transform: rotateY(180deg);
+  }
+}
