@@ -12,21 +12,16 @@ use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
     protected $policies = [
-        Movie::class => UserPolicy::class,  // Associa la policy per Movie
+        User::class => UserPolicy::class,   
+        Movie::class => MoviePolicy::class,
     ];
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         Route::middleware([

@@ -43,12 +43,26 @@ class UserController extends Controller
             'role' => 'sometimes|in:User,Admin',
         ]);
 
-        // Se la password è vuota, rimuoverla dal payload
+        // Gestisci la password
         if (!empty($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
+            // Genera nuovo salt e hash
+            $salt = bin2hex(random_bytes(32));
+            $hash = hash('sha256', $validated['password'] . $salt);
+
+            // Aggiorna la password nella tabella user_passwords
+            \DB::table('user_passwords')->where('user_id', $user->id)->update([
+                'password_hash' => $hash,
+                'salt' => $salt,
+                'created_at' => now(),
+            ]);
+
+            // Aggiorna la secret_jwt per invalidare eventuali token
+            $newSecretJwt = bin2hex(random_bytes(32));
+            \DB::table('user_login_data')->where('user_id', $user->id)->update([
+                'secret_jwt' => $newSecretJwt,
+            ]);
         }
+        unset($validated['password']); // NON aggiornare password in users
 
         $user->update($validated);
 
@@ -59,7 +73,7 @@ class UserController extends Controller
     }
 
     // SOLO ADMIN: Crea un nuovo utente
-    public function store(Request $request)
+public function store(Request $request)
     {
         $this->authorize('adminAccess', User::class);
 
@@ -74,14 +88,53 @@ class UserController extends Controller
             'role' => 'required|in:User,Admin',
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+        \DB::beginTransaction();
+        try {
+            // 1. Crea utente senza campo password
+            $user = User::create([
+                'name' => $validated['name'],
+                'surname' => $validated['surname'],
+                'birth_year' => $validated['birth_year'],
+                'country' => $validated['country'],
+                'language' => $validated['language'],
+                'email' => $validated['email'],
+                'role' => $validated['role'],
+            ]);
 
-        $user = User::create($validated);
+            // 2. Genera salt e hash
+            $salt = bin2hex(random_bytes(32));
+            $hash = hash('sha256', $validated['password'] . $salt);
 
-        return response()->json([
-            'message' => 'User created successfully',
-            'user' => $user
-        ], 201);
+            // 3. Inserisci in user_passwords
+            \DB::table('user_passwords')->insert([
+                'user_id'       => $user->id,
+                'password_hash' => $hash,
+                'salt'          => $salt,
+                'created_at'    => now(),
+            ]);
+
+            // 4. Crea secret JWT utente
+            $secretJwt = bin2hex(random_bytes(32));
+            \DB::table('user_login_data')->insert([
+                'user_id'     => $user->id,
+                'secret_jwt'  => $secretJwt,
+                'created_at'  => now(),
+            ]);
+
+            \DB::commit();
+
+            return response()->json([
+                'message' => 'User created successfully',
+                'user' => $user
+            ], 201);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json([
+                'message' => 'Errore durante la creazione utente.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     // SOLO ADMIN: Cancella un utente

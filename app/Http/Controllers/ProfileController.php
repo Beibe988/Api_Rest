@@ -11,20 +11,14 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): View
+   public function edit(Request $request): View
     {
         return view('profile.edit', [
             'user' => $request->user(),
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+   public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $request->user()->fill($request->validated());
 
@@ -37,17 +31,32 @@ class ProfileController extends Controller
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 
-    /**
-     * Delete the user's account.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+            'password' => ['required'],
         ]);
 
         $user = $request->user();
 
+        // Verifica password con salt e hash
+        $passRow = \DB::table('user_passwords')->where('user_id', $user->id)->first();
+
+        if (!$passRow) {
+            return back()->withErrors([
+                'password' => 'Errore interno: password non trovata.',
+            ], 'userDeletion');
+        }
+
+        $inputHash = hash('sha256', $request->password . $passRow->salt);
+
+        if ($inputHash !== $passRow->password_hash) {
+            return back()->withErrors([
+                'password' => 'La password inserita non è corretta.',
+            ], 'userDeletion');
+        }
+
+        // Logout ed elimina utente (con cascade su tabelle collegate)
         Auth::logout();
 
         $user->delete();
@@ -57,4 +66,5 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
+
 }

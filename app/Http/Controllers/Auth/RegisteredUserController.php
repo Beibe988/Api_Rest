@@ -8,8 +8,8 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
@@ -35,16 +35,44 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        DB::beginTransaction();
+        try {
+            // 1. Crea l'utente (senza campo password)
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+            ]);
 
-        event(new Registered($user));
+            // 2. Genera salt e hash
+            $salt = bin2hex(random_bytes(32));
+            $hash = hash('sha256', $request->password . $salt);
 
-        Auth::login($user);
+            // 3. Inserisci in user_passwords
+            DB::table('user_passwords')->insert([
+                'user_id'       => $user->id,
+                'password_hash' => $hash,
+                'salt'          => $salt,
+                'created_at'    => now(),
+            ]);
 
-        return redirect(route('dashboard', absolute: false));
+            // 4. Crea secret JWT utente
+            $secretJwt = bin2hex(random_bytes(32));
+            DB::table('user_login_data')->insert([
+                'user_id'     => $user->id,
+                'secret_jwt'  => $secretJwt,
+                'created_at'  => now(),
+            ]);
+
+            DB::commit();
+
+            event(new Registered($user));
+            Auth::login($user);
+
+            return redirect(route('dashboard', absolute: false));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->withErrors(['registration' => 'Errore durante la registrazione.']);
+        }
     }
 }
+

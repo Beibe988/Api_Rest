@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 
 class ConfirmablePasswordController extends Controller
 {
@@ -24,10 +24,20 @@ class ConfirmablePasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        if (! Auth::guard('web')->validate([
-            'email' => $request->user()->email,
-            'password' => $request->password,
-        ])) {
+        $user = $request->user();
+
+        // Recupera hash e salt dalla tabella user_passwords
+        $passRow = DB::table('user_passwords')->where('user_id', $user->id)->first();
+
+        if (!$passRow) {
+            throw ValidationException::withMessages([
+                'password' => __('auth.password'),
+            ]);
+        }
+
+        $inputHash = hash('sha256', $request->password . $passRow->salt);
+
+        if ($inputHash !== $passRow->password_hash) {
             throw ValidationException::withMessages([
                 'password' => __('auth.password'),
             ]);
@@ -38,3 +48,4 @@ class ConfirmablePasswordController extends Controller
         return redirect()->intended(route('dashboard', absolute: false));
     }
 }
+
