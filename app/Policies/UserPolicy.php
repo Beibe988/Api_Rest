@@ -69,7 +69,20 @@ class UserPolicy
             ? Response::allow()
             : Response::deny('Accesso negato.');
     }
+
+    /**
+     * Permette l'accesso solo a chi non è Guest.
+     */
+    public function blockGuests(User $user): Response
+    {
+        \Log::info('[POLICY DEBUG] Ruolo utente:', ['role' => $user->role, 'id' => $user->id]);
+        return $user->role !== 'Guest'
+            ? Response::allow()
+            : Response::deny('Accesso negato: ruolo Guest');
+    }
+
 }
+
 
 
 

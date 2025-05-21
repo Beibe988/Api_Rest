@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Movie;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class MovieController extends Controller
@@ -12,9 +11,9 @@ class MovieController extends Controller
     use AuthorizesRequests;
 
     // Elenco di tutti i film
-    public function index()
+    public function index(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->attributes->get('user');
 
         if ($user->role === 'Admin') {
             return response()->json(Movie::all(), 200);
@@ -24,15 +23,17 @@ class MovieController extends Controller
     }
 
     // Visualizzazione di un film specifico
-    public function show(Movie $movie)
+    public function show(Request $request, Movie $movie)
     {
+        // Qui potresti anche autorizzare con policy se vuoi
         return response()->json($movie, 200);
     }
 
     // Inserimento di un nuovo film (autorizzato da policy)
     public function store(Request $request)
     {
-        $this->authorize('create', Movie::class);
+        $user = $request->attributes->get('user');
+        $this->authorize('create', \App\Models\Movie::class);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -43,7 +44,7 @@ class MovieController extends Controller
             'description' => 'required|string',
         ]);
 
-        $validated['user_id'] = Auth::id();
+        $validated['user_id'] = $user->id;
 
         $movie = Movie::create($validated);
 
@@ -53,6 +54,7 @@ class MovieController extends Controller
     // Aggiornamento di un film
     public function update(Request $request, Movie $movie)
     {
+        $user = $request->attributes->get('user');
         $this->authorize('update', $movie);
 
         $validated = $request->validate([
@@ -70,8 +72,9 @@ class MovieController extends Controller
     }
 
     // Eliminazione di un film
-    public function destroy(Movie $movie)
+    public function destroy(Request $request, Movie $movie)
     {
+        $user = $request->attributes->get('user');
         $this->authorize('delete', $movie);
 
         $movie->delete();
@@ -79,6 +82,7 @@ class MovieController extends Controller
         return response()->json(['message' => 'Film eliminato con successo'], 200);
     }
 }
+
 
 
 

@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
@@ -14,14 +12,15 @@ class UserController extends Controller
     use AuthorizesRequests;
 
     // SOLO ADMIN: Visualizza tutti gli utenti
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->attributes->get('user');
         $this->authorize('adminAccess', User::class);
         return response()->json(User::all(), 200);
     }
 
     // User/Admin: Visualizza un singolo utente
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
         $this->authorize('view', $user);
         return response()->json($user, 200);
@@ -45,11 +44,9 @@ class UserController extends Controller
 
         // Gestisci la password
         if (!empty($validated['password'])) {
-            // Genera nuovo salt e hash
             $salt = bin2hex(random_bytes(32));
             $hash = hash('sha256', $validated['password'] . $salt);
 
-            // Aggiorna la password nella tabella user_passwords
             \DB::table('user_passwords')->where('user_id', $user->id)->update([
                 'password_hash' => $hash,
                 'salt' => $salt,
@@ -73,7 +70,7 @@ class UserController extends Controller
     }
 
     // SOLO ADMIN: Crea un nuovo utente
-public function store(Request $request)
+    public function store(Request $request)
     {
         $this->authorize('adminAccess', User::class);
 
@@ -138,7 +135,7 @@ public function store(Request $request)
     }
 
     // SOLO ADMIN: Cancella un utente
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
         $this->authorize('adminAccess', User::class);
         $user->delete();
@@ -155,7 +152,7 @@ public function store(Request $request)
             'amount' => 'required|numeric|min:1'
         ]);
 
-        $user = auth()->user();
+        $user = $request->attributes->get('user');
         $user->credits += $request->amount;
         $user->save();
 
@@ -165,6 +162,7 @@ public function store(Request $request)
         ], 200);
     }
 }
+
 
 
 

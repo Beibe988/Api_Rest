@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Episode;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class EpisodeController extends Controller
@@ -12,14 +11,15 @@ class EpisodeController extends Controller
     use AuthorizesRequests;
 
     // Visualizza tutti gli episodi
-    public function index()
+    public function index(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->attributes->get('user');
 
         if ($user->role === 'Admin') {
             return response()->json(Episode::all(), 200);
         }
 
+        // Episodi delle serie create da questo utente
         return response()->json(
             Episode::whereHas('serie', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
@@ -45,6 +45,8 @@ class EpisodeController extends Controller
     {
         $this->authorize('create', \App\Models\Episode::class);
 
+        $user = $request->attributes->get('user');
+
         $validated = $request->validate([
             'serie_tv_id'     => 'required|exists:serie_tv,id',
             'title'           => 'required|string|max:255',
@@ -57,22 +59,20 @@ class EpisodeController extends Controller
 
         $episode = Episode::create([
             ...$validated,
-            'user_id' => Auth::id(),
-        ]);     
+            'user_id' => $user->id,
+        ]);
 
         return response()->json(['message' => 'Episodio creato', 'episode' => $episode], 201);
     }
 
     // Aggiorna un episodio
-    public function update(Request $request, Episode $episode)
+    public function update(Request $request, $id)
     {
-        $episode->load('serie');
+        $episode = Episode::find($id);
 
         if (!$episode) {
             return response()->json(['message' => 'Episodio non trovato'], 404);
         }
-
-        \Log::info('Utente autenticato:', ['id' => Auth::id(), 'user' => Auth::user()]);
 
         $this->authorize('update', $episode);
 
@@ -91,11 +91,10 @@ class EpisodeController extends Controller
         return response()->json(['message' => 'Episodio aggiornato', 'episode' => $episode]);
     }
 
-
     // Elimina un episodio
     public function destroy($id)
     {
-        $episode = Episode::with('serie')->find($id); // ← Aggiunto eager loading
+        $episode = Episode::with('serie')->find($id);
 
         if (!$episode) {
             return response()->json(['message' => 'Episodio non trovato'], 404);
@@ -108,6 +107,7 @@ class EpisodeController extends Controller
         return response()->json(['message' => 'Episodio eliminato con successo']);
     }
 }
+
 
 
 

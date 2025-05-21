@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\SerieTv;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class SerieTvController extends Controller
@@ -12,9 +11,9 @@ class SerieTvController extends Controller
     use AuthorizesRequests;
 
     // Elenco di tutte le Serie TV
-    public function index()
+    public function index(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->attributes->get('user');
 
         if ($user->role === 'Admin') {
             return SerieTv::withCount('episodes')->get();
@@ -37,10 +36,12 @@ class SerieTvController extends Controller
         return response()->json($serie);
     }
 
-    // Crea una nuova Serie TV (solo Admin)
+    // Crea una nuova Serie TV (solo Admin o User, secondo la policy)
     public function store(Request $request)
     {
         $this->authorize('create', SerieTv::class);
+
+        $user = $request->attributes->get('user');
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -52,7 +53,7 @@ class SerieTvController extends Controller
 
         $serie = SerieTv::create([
             ...$validated,
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
         ]);
 
         return response()->json(['message' => 'Serie TV creata con successo', 'serie' => $serie], 201);
@@ -83,7 +84,7 @@ class SerieTvController extends Controller
     }
 
     // Elimina una Serie TV
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $serie = SerieTv::find($id);
 
@@ -98,3 +99,4 @@ class SerieTvController extends Controller
         return response()->json(['message' => 'Serie TV eliminata con successo']);
     }
 }
+

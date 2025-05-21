@@ -9,14 +9,19 @@ use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\LanguageController;
+use App\Http\Controllers\Auth\ApiPasswordResetController;
+use App\Http\Controllers\Auth\ApiForgotPasswordController;
+
 
 // ROTTE PUBBLICHE
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/welcome', fn () => response()->json(['message' => 'Benvenuto nel sistema']));
+Route::post('/reset-password', [ApiPasswordResetController::class, 'store']);
+Route::post('/forgot-password', [ApiForgotPasswordController::class, 'store']);
 
 // ROTTE AUTENTICATE (User + Admin)
-Route::middleware(['auth:sanctum', 'can:blockGuests,App\Models\User'])->group(function () {
+Route::middleware(['jwt', 'can:blockGuests,App\Models\User'])->group(function () {
 
     Route::get('/languages', [LanguageController::class, 'index']);
 

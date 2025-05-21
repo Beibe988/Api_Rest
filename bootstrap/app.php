@@ -11,13 +11,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Registrazione middleware di route custom
+        $middleware->alias([
+            'jwt' => \App\Http\Middleware\JwtAuthenticate::class,
+        ]);
+
+        // (opzionale) Per mettere HandleCors come global middleware
+        $middleware->append([
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
 
-    $app->middleware([
-        \Illuminate\Http\Middleware\HandleCors::class,
-    ]);
     

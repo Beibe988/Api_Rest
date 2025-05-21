@@ -8,8 +8,9 @@ use App\Models\Category;
 class CategoryController extends Controller
 {
     // Tutti gli utenti autenticati possono vedere le categorie
-    public function index()
+    public function index(Request $request)
     {
+        // $user = $request->attributes->get('user'); // solo se ti serve
         return response()->json(Category::all(), 200);
     }
 
@@ -38,11 +39,12 @@ class CategoryController extends Controller
     }
 
     // Solo Admin (gestito tramite middleware in api.php)
-    public function destroy(Category $category)
+    public function destroy(Request $request, Category $category)
     {
         $category->delete();
         return response()->json(['message' => 'Categoria eliminata con successo'], 200);
     }
 }
+
 
 

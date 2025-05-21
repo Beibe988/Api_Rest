@@ -94,6 +94,13 @@ class AuthController extends Controller
 
         $inputHash = hash('sha256', $request->password . $passRow->salt);
 
+        \Log::info('LOGIN DEBUG', [
+            'input_password' => $request->password,
+            'db_salt'        => $passRow->salt,
+            'db_hash'        => $passRow->password_hash,
+            'calc_hash'      => $inputHash,
+        ]);
+
         if ($inputHash !== $passRow->password_hash) {
             $this->updateLoginTests($user->id, $request->input('password_entry_duration', null), true);
             return response()->json(['error' => 'Credenziali non valide'], 401);
