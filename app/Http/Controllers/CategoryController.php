@@ -10,7 +10,7 @@ class CategoryController extends Controller
     // Tutti gli utenti autenticati possono vedere le categorie
     public function index(Request $request)
     {
-        // $user = $request->attributes->get('user'); // solo se ti serve
+        // Se serve l'utente loggato: $user = $request->attributes->get('user');
         return response()->json(Category::all(), 200);
     }
 
@@ -45,6 +45,7 @@ class CategoryController extends Controller
         return response()->json(['message' => 'Categoria eliminata con successo'], 200);
     }
 }
+
 
 
 

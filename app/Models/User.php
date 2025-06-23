@@ -36,6 +36,22 @@ class User extends Authenticatable
     {
         return $this->role === 'Admin';
     }
+
+    public function getNameAttribute($value)
+    {
+        return \Crypt::decryptString($value);
+    }
+
+    public function getSurnameAttribute($value)
+    {
+        return \Crypt::decryptString($value);
+    }
+
+    public function getEmailAttribute($value)
+    {
+        return \Crypt::decryptString($value);
+    }
+
 }
 
 

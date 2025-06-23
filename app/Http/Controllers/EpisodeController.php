@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Episode;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class EpisodeController extends Controller
@@ -31,10 +32,17 @@ class EpisodeController extends Controller
     // Visualizza un singolo episodio
     public function show($id)
     {
-        $episode = Episode::find($id);
+        $episode = Episode::with('user')->find($id); // carica relazione user (se serve)
 
         if (!$episode) {
             return response()->json(['message' => 'Episodio non trovato'], 404);
+        }
+
+        // Se vuoi restituire dati utente, decripta!
+        if ($episode->user) {
+            $episode->user->name = Crypt::decryptString($episode->user->name);
+            $episode->user->surname = Crypt::decryptString($episode->user->surname);
+            $episode->user->email = Crypt::decryptString($episode->user->email);
         }
 
         return response()->json($episode, 200);
@@ -107,6 +115,7 @@ class EpisodeController extends Controller
         return response()->json(['message' => 'Episodio eliminato con successo']);
     }
 }
+
 
 
 

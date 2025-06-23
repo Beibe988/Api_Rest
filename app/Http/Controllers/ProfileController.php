@@ -6,27 +6,56 @@ use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-   public function edit(Request $request): View
+    public function edit(Request $request): View
     {
+        // Decifra i dati per passarli alla view
+        $user = $request->user();
+
+        $user->name = Crypt::decryptString($user->name);
+        $user->surname = Crypt::decryptString($user->surname);
+        $user->email = Crypt::decryptString($user->email);
+
         return view('profile.edit', [
-            'user' => $request->user(),
+            'user' => $user,
         ]);
     }
 
-   public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        $validated = $request->validated();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        // Cripta i dati sensibili PRIMA di salvare
+        if (isset($validated['name'])) {
+            $user->name = Crypt::encryptString($validated['name']);
+            $user->hash_name = hash('sha256', strtolower(trim($validated['name'])));
         }
 
-        $request->user()->save();
+        if (isset($validated['surname'])) {
+            $user->surname = Crypt::encryptString($validated['surname']);
+            $user->hash_surname = hash('sha256', strtolower(trim($validated['surname'])));
+        }
+
+        if (isset($validated['email'])) {
+            $user->email = Crypt::encryptString($validated['email']);
+            $user->hash_email = hash('sha256', strtolower(trim($validated['email'])));
+            $user->email_verified_at = null;
+        }
+
+        // Altri campi normali
+        foreach (['birth_year', 'country', 'language'] as $field) {
+            if (isset($validated[$field])) {
+                $user->$field = $validated[$field];
+            }
+        }
+
+        $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
@@ -66,5 +95,5 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
-
 }
+

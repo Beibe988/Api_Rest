@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -18,17 +19,29 @@ class AuthController extends Controller
     {
         $request->validate([
             'name'                  => 'required|string|max:255',
+            'surname'               => 'required|string|max:255',   // <--- aggiunto
             'email'                 => 'required|string|email|max:255|unique:users',
             'password'              => 'required|string|min:6|confirmed',
         ]);
 
         DB::beginTransaction();
         try {
+            $cryptedName    = Crypt::encryptString($request->name);
+            $cryptedSurname = Crypt::encryptString($request->surname); // <--- aggiunto
+            $cryptedEmail   = Crypt::encryptString($request->email);
+            $hashEmail      = hash('sha256', strtolower(trim($request->email)));
+            $hashName       = hash('sha256', strtolower(trim($request->name)));
+            $hashSurname    = hash('sha256', strtolower(trim($request->surname))); // <--- aggiunto
+
             // 1. Crea utente in users
             $user = User::create([
-                'name'  => $request->name,
-                'email' => $request->email,
-                'role'  => 'Guest',
+                'name'       => $cryptedName,
+                'surname'    => $cryptedSurname, // <--- aggiunto
+                'email'      => $cryptedEmail,
+                'hash_email' => $hashEmail,
+                'hash_name'  => $hashName,
+                'hash_surname' => $hashSurname, // <--- aggiunto
+                'role'       => 'Guest',
             ]);
 
             // 2. Genera salt e hash
@@ -71,7 +84,8 @@ class AuthController extends Controller
             'password_entry_duration' => 'nullable|integer|min:0', // <-- da frontend, opzionale
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $hashEmail = hash('sha256', strtolower(trim($request->email)));
+        $user = User::where('hash_email', $hashEmail)->first();
 
         if (!$user) {
             // Non aggiorno login_tests perché non conosco l'user_id
@@ -119,7 +133,7 @@ class AuthController extends Controller
         // Prepara payload JWT
         $payload = [
             'sub'   => $user->id,
-            'email' => $user->email,
+            'email' => $user->email, // già decriptata dall'accessor!
             'iat'   => time(),
             'exp'   => time() + 3600,
         ];
@@ -135,9 +149,10 @@ class AuthController extends Controller
         return response()->json([
             'token' => $jwt,
             'user'  => [
-                'id'   => $user->id,
-                'name' => $user->name,
-                'role' => $user->role,
+                'id'      => $user->id,
+                'name'    => $user->name,    // già decriptata dall'accessor!
+                'surname' => $user->surname, // già decriptata dall'accessor!
+                'role'    => $user->role,
             ]
         ], 200);
     }
@@ -168,7 +183,7 @@ class AuthController extends Controller
     // Recupera utenti (admin)
     public function listUsers()
     {
-        $users = User::select('id', 'name', 'email', 'role', 'created_at')->get();
+        $users = User::select('id', 'name', 'surname', 'email', 'role', 'created_at')->get();
 
         Log::info('Utenti recuperati:', ['users' => $users]);
 

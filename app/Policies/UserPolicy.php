@@ -65,7 +65,7 @@ class UserPolicy
      */
     public function adminAccess(User $user): Response
     {
-        return $user->role === 'Admin'
+        return (isset($user->role) && $user->role === 'Admin')
             ? Response::allow()
             : Response::deny('Accesso negato.');
     }

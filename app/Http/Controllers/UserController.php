@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class UserController extends Controller
@@ -16,14 +17,42 @@ class UserController extends Controller
     {
         $user = $request->attributes->get('user');
         $this->authorize('adminAccess', User::class);
-        return response()->json(User::all(), 200);
+
+        $users = User::all()->map(function($user) {
+            return [
+                'id'        => $user->id,
+                'name'      => $user->name ? Crypt::decryptString($user->name) : null,
+                'surname'   => $user->surname,
+                'birth_year'=> $user->birth_year,
+                'country'   => $user->country,
+                'language'  => $user->language,
+                'email'     => $user->email ? Crypt::decryptString($user->email) : null,
+                'role'      => $user->role,
+                'credits'   => $user->credits,
+            ];
+        });
+
+        return response()->json($users, 200);
     }
 
     // User/Admin: Visualizza un singolo utente
     public function show(Request $request, User $user)
     {
         $this->authorize('view', $user);
-        return response()->json($user, 200);
+
+        $userData = [
+            'id'        => $user->id,
+            'name'      => $user->name ? Crypt::decryptString($user->name) : null,
+            'surname'   => $user->surname,
+            'birth_year'=> $user->birth_year,
+            'country'   => $user->country,
+            'language'  => $user->language,
+            'email'     => $user->email ? Crypt::decryptString($user->email) : null,
+            'role'      => $user->role,
+            'credits'   => $user->credits,
+        ];
+
+        return response()->json($userData, 200);
     }
 
     // User può modificare sé stesso, Admin può modificare tutti
@@ -41,6 +70,16 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'role' => 'sometimes|in:User,Admin',
         ]);
+
+        // Cripta e aggiorna hash per name/email se presenti
+        if (isset($validated['name'])) {
+            $validated['hash_name'] = hash('sha256', strtolower(trim($validated['name'])));
+            $validated['name'] = Crypt::encryptString($validated['name']);
+        }
+        if (isset($validated['email'])) {
+            $validated['hash_email'] = hash('sha256', strtolower(trim($validated['email'])));
+            $validated['email'] = Crypt::encryptString($validated['email']);
+        }
 
         // Gestisci la password
         if (!empty($validated['password'])) {
@@ -63,9 +102,22 @@ class UserController extends Controller
 
         $user->update($validated);
 
+        // Risposta con dati decriptati
+        $responseUser = [
+            'id'        => $user->id,
+            'name'      => $user->name ? Crypt::decryptString($user->name) : null,
+            'surname'   => $user->surname,
+            'birth_year'=> $user->birth_year,
+            'country'   => $user->country,
+            'language'  => $user->language,
+            'email'     => $user->email ? Crypt::decryptString($user->email) : null,
+            'role'      => $user->role,
+            'credits'   => $user->credits,
+        ];
+
         return response()->json([
             'message' => 'User updated successfully',
-            'user' => $user
+            'user' => $responseUser
         ], 200);
     }
 
@@ -87,15 +139,21 @@ class UserController extends Controller
 
         \DB::beginTransaction();
         try {
+            $cryptedName = Crypt::encryptString($validated['name']);
+            $cryptedEmail = Crypt::encryptString($validated['email']);
+            $hashEmail = hash('sha256', strtolower(trim($validated['email'])));
+            $hashName = hash('sha256', strtolower(trim($validated['name'])));
             // 1. Crea utente senza campo password
             $user = User::create([
-                'name' => $validated['name'],
-                'surname' => $validated['surname'],
+                'name'       => $cryptedName,
+                'surname'    => $validated['surname'],
                 'birth_year' => $validated['birth_year'],
-                'country' => $validated['country'],
-                'language' => $validated['language'],
-                'email' => $validated['email'],
-                'role' => $validated['role'],
+                'country'    => $validated['country'],
+                'language'   => $validated['language'],
+                'email'      => $cryptedEmail,
+                'hash_email' => $hashEmail,
+                'hash_name'  => $hashName,
+                'role'       => $validated['role'],
             ]);
 
             // 2. Genera salt e hash
@@ -120,9 +178,21 @@ class UserController extends Controller
 
             \DB::commit();
 
+            $responseUser = [
+                'id'        => $user->id,
+                'name'      => $user->name ? Crypt::decryptString($user->name) : null,
+                'surname'   => $user->surname,
+                'birth_year'=> $user->birth_year,
+                'country'   => $user->country,
+                'language'  => $user->language,
+                'email'     => $user->email ? Crypt::decryptString($user->email) : null,
+                'role'      => $user->role,
+                'credits'   => $user->credits,
+            ];
+
             return response()->json([
                 'message' => 'User created successfully',
-                'user' => $user
+                'user' => $responseUser
             ], 201);
 
         } catch (\Exception $e) {
@@ -162,6 +232,7 @@ class UserController extends Controller
         ], 200);
     }
 }
+
 
 
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Movie;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Crypt;
 
 class MovieController extends Controller
 {
@@ -25,7 +26,8 @@ class MovieController extends Controller
     // Visualizzazione di un film specifico
     public function show(Request $request, Movie $movie)
     {
-        // Qui potresti anche autorizzare con policy se vuoi
+        // Eventuale decifrazione nome autore
+        // $movie->user_name = $movie->user ? \Crypt::decryptString($movie->user->name) : null;
         return response()->json($movie, 200);
     }
 
@@ -82,6 +84,7 @@ class MovieController extends Controller
         return response()->json(['message' => 'Film eliminato con successo'], 200);
     }
 }
+
 
 
 
