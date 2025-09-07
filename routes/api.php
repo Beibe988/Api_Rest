@@ -21,7 +21,7 @@ Route::post('/reset-password', [ApiPasswordResetController::class, 'store']);
 Route::post('/forgot-password', [ApiForgotPasswordController::class, 'store']);
 
 // ROTTE AUTENTICATE (User + Admin)
-Route::middleware(['jwt', 'can:blockGuests,App\Models\User'])->group(function () {
+Route::middleware(['jwt', 'log.user.access', 'can:blockGuests,App\Models\User'])->group(function () {
 
     Route::get('/languages', [LanguageController::class, 'index']);
 
@@ -64,7 +64,8 @@ Route::middleware(['jwt', 'can:blockGuests,App\Models\User'])->group(function ()
     Route::post('/credits/add', [UserController::class, 'addCredits']);
 });
 
-
-
+if (app()->environment('local')) {
+    Route::get('/test-login-hash', [\App\Http\Controllers\AuthController::class, 'testLoginHashOnly']);
+}
 
 

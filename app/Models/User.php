@@ -52,6 +52,17 @@ class User extends Authenticatable
         return \Crypt::decryptString($value);
     }
 
+    public function passwordRow()
+    {
+        return $this->hasOne(\App\Models\UserPassword::class, 'id_user');
+    }
+
+    public function accesses()
+    {
+        return $this->hasMany(\App\Models\UserAccess::class, 'id_user');
+    }
+
+
 }
 
 

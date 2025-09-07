@@ -36,9 +36,11 @@
         }
     },
     "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
+    "psr-4": { "Tests\\": "tests/" },
+    "classmap": [
+        "database/seeders",
+        "database/factories"
+    ]
     },
     "scripts": {
         "post-autoload-dump": [
