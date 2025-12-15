@@ -54,7 +54,7 @@ Route::middleware(['jwt', 'log.user.access', 'can:blockGuests,App\Models\User'])
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->middleware('can:adminAccess,App\Models\User');
 
     // UTENTI
-    Route::get('/users', [UserController::class, 'index'])->middleware('can:adminAccess,App\Models\User');
+    Route::get('/users', [UserController::class, 'index'])->middleware('can:adminAccess');
     Route::post('/users', [UserController::class, 'store'])->middleware('can:create,App\Models\User'); 
     Route::get('/users/{user}', [UserController::class, 'show'])->middleware('can:view,user');
     Route::put('/users/{user}', [UserController::class, 'update'])->middleware('can:update,user');

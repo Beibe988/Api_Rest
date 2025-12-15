@@ -1,0 +1,215 @@
+/* ===============================
+   PALETTE & BASE (mobile-first)
+   =============================== */
+:root{
+  --brand:       #16a34a;  /* verde principale */
+  --brand-600:   #15803d;
+  --brand-700:   #166534;
+  --brand-100:   #d1fae5;
+  --ink:         #0f1115;  /* nero profondo per testo/back */
+  --ink-2:       #171a1f;
+  --ink-3:       #1f232a;
+  --surface:     #ffffff;
+  --muted:       #6b7280;
+  --ring:        rgba(22, 163, 74, .35);
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface:   #0b0d0f;
+    --ink:       #f3f4f6;
+    --ink-2:     #0f1115;
+    --ink-3:     #13161c;
+    --muted:     #9ca3af;
+    --ring:      rgba(34, 197, 94, .45);
+  }
+}
+
+html, body, #root{
+  min-height: 100%;
+}
+
+body{
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(22,163,74,.08), transparent 60%),
+    radial-gradient(800px 400px at 120% 10%, rgba(22,163,74,.06), transparent 60%),
+    linear-gradient(180deg, var(--surface), var(--surface));
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===============================
+   LAYOUT ROOT (responsive)
+   =============================== */
+#root{
+  width: 100%;
+  max-width: 1280px;   /* su desktop rimane centrato */
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  text-align: left;    /* meno “app demo”, più prodotto */
+}
+
+/* ===============================
+   LOGO (animazione e hover)
+   =============================== */
+.logo{
+  height: clamp(48px, 9vw, 96px);
+  padding: 1rem;
+  will-change: filter, transform;
+  transition: filter 300ms, transform 300ms;
+}
+.logo:hover{
+  filter: drop-shadow(0 0 1.25em rgba(22,163,74,.65));
+  transform: translateY(-2px);
+}
+.logo.react:hover{
+  filter: drop-shadow(0 0 1.25em rgba(97,218,251,.55));
+}
+
+@keyframes logo-spin{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: no-preference){
+  a:nth-of-type(2) .logo{
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+/* ===============================
+   CARDS & SECTIONS
+   =============================== */
+.card{
+  padding: 2em;
+  border: 0;
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0,0,0,.06);
+}
+
+.card-auth{
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+/* Sezione titolo sottile con accento verde */
+.section-title{
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--brand-600);
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .75rem;
+}
+
+/* ===============================
+   TIPOGRAFIA & HELP TEXT
+   =============================== */
+.read-the-docs{ color: var(--muted); }
+.form-text-muted{
+  font-size: .82rem;
+  color: var(--muted);
+}
+
+/* ===============================
+   LINK & FOCUS RING
+   =============================== */
+a{
+  color: var(--brand-600);
+  text-decoration: none;
+}
+a:hover{ color: var(--brand-700); text-decoration: underline; }
+:focus-visible{
+  outline: 2px solid var(--brand-100);
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: 6px;
+  transition: box-shadow .2s ease;
+}
+
+/* ===============================
+   BOOTSTRAP OVERRIDES (light)
+   =============================== */
+.btn-primary{
+  background-color: var(--brand) !important;
+  border-color: var(--brand-600) !important;
+  box-shadow: 0 6px 16px rgba(22,163,74,.22);
+}
+.btn-primary:hover{
+  background-color: var(--brand-600) !important;
+  border-color: var(--brand-700) !important;
+}
+.btn-outline-secondary:hover{
+  color: #fff !important;
+  background-color: var(--ink-3) !important;
+  border-color: var(--ink-3) !important;
+}
+
+/* input, select, textarea */
+.form-control, .form-select{
+  border-radius: .75rem;
+  border-color: rgba(0,0,0,.12);
+}
+.form-control:focus, .form-select:focus{
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 .2rem var(--ring);
+}
+.is-invalid + .invalid-feedback{ display: block; }
+
+/* Badge/Alert verdi più vividi */
+.alert-success{
+  color: #0f5132;
+  background-color: #d1fae5;
+  border-color: #a7f3d0;
+}
+
+/* ===============================
+   PAGE WRAPPER AUTH
+   =============================== */
+.page-auth{
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-start;
+  background:
+    radial-gradient(1000px 500px at -10% 0%, rgba(22,163,74,.10), transparent 60%),
+    radial-gradient(900px 500px at 110% -10%, rgba(0,0,0,.06), transparent 60%),
+    linear-gradient(180deg, var(--surface), var(--surface));
+  padding-block: clamp(1.25rem, 3.5vw, 2rem);
+}
+
+/* Steps (progress visuale) */
+.steps{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.step{
+  height: .35rem;
+  border-radius: 999px;
+  background: #e9ecef;
+}
+.step.active{ background: var(--brand-600); }
+
+/* ===============================
+   RESPONSIVE ENHANCEMENTS
+   =============================== */
+h1, .h1{ font-size: clamp(1.5rem, 2.5vw, 2rem); }
+h2, .h2{ font-size: clamp(1.25rem, 2vw, 1.5rem); }
+p, .lead{ line-height: 1.6; }
+
+@media (min-width: 992px){
+  #root{ padding: 2.25rem; }
+}
+
+/* ===============================
+   OPTIONAL: mini utility
+   =============================== */
+.text-brand{ color: var(--brand-600) !important; }
+.bg-ink   { background: var(--ink-2) !important; color: var(--ink) !important; }
+.round-xl { border-radius: 1rem !important; }
+.shadow-soft{ box-shadow: 0 8px 26px rgba(0,0,0,.08) !important; }

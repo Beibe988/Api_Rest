@@ -1,0 +1,26 @@
+/* wrapper con scroll verticale + header sticky */
+.table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+/* intestazioni sempre visibili */
+.table-sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bs-body-bg);
+}
+
+/* celle compatte e allineate verticalmente */
+.table-sm td, .table-sm th {
+  padding-top: .45rem;
+  padding-bottom: .45rem;
+}
+.table.align-middle td, .table.align-middle th {
+  vertical-align: middle;
+}
+
+/* utilities per testo */
+.td-nowrap { white-space: nowrap; }
+.td-clip   { max-width: 28ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

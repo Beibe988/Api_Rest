@@ -26,7 +26,9 @@ class JwtAuthenticate
         if (count($jwtParts) !== 3) {
             return response()->json(['error' => 'Formato token non valido'], 401);
         }
-        $payload = json_decode(base64_decode(strtr($jwtParts[1], '-_', '+/')), true);
+        $seg = $jwtParts[1];
+        $seg .= str_repeat('=', (4 - strlen($seg) % 4) % 4); // padding per base64
+        $payload = json_decode(base64_decode(strtr($seg, '-_', '+/')), true);
 
         if (!$payload || !isset($payload['sub'])) {
             return response()->json(['error' => 'Token senza user_id'], 401);
@@ -66,6 +68,7 @@ class JwtAuthenticate
 
         // Se vuoi usare helper globale:
         // app()->instance('jwt_user', $user);
+        $request->attributes->set('auth_user', $user);
 
         return $next($request);
     }

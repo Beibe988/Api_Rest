@@ -1,0 +1,374 @@
+/* =========================================
+   Brand & Bootstrap tokens (dark, verde/nero)
+   ========================================= */
+:root {
+  /* Bootstrap base */
+  --bs-body-bg: #0b0c10;
+  --bs-body-color: #e6eef5;
+  --bs-primary: #6ea8fe;          /* se vuoi il verde come primary globale, sostituisci con var(--brand-green-700) */
+  --bs-secondary: #9aa0a6;
+
+  /* Palette brand (verde/nero) */
+  --brand-green: #00d084;
+  --brand-green-600: #00b373;
+  --brand-green-700: #009a63;
+  --brand-green-900: #0b3326;
+
+  /* Alias (compat lib/UI) */
+  --brand-accent: var(--brand-green);
+  --brand-accent-2: var(--brand-green-600);
+
+  /* Superfici */
+  --surface-0: #0b0c10; /* page bg */
+  --surface-1: #12141a; /* pannelli */
+  --surface-2: #181b22; /* hover/accents */
+
+  /* Card/border neutri */
+  --card-bg: #101217;
+  --card-border: #1a1d24;
+
+  /* Testo attenuato */
+  --muted: #9aa0a6;
+
+  /* Pattern tile (512x512) - aggiorna il path se necessario */
+  --bg-pattern-url: url("public/images/pattern_tile_512.png");
+}
+
+/* Body */
+body {
+  /* fallback colore di pagina */
+  background-color: var(--surface-0);
+  color: var(--bs-body-color);
+
+  /* pattern + velatura scura per leggibilità */
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,0.60), rgba(0,0,0,0.30)),
+    var(--bg-pattern-url);
+  background-size: auto, 512px 512px;
+  background-repeat: no-repeat, repeat;
+  background-attachment: fixed, fixed;
+  background-position: center top, left top;
+}
+
+/* Navbar scura: mantieni brand bianco */
+.navbar-dark { --bs-navbar-brand-color: #fff; }
+
+/* Link su dark: più leggibili */
+a {
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--brand-accent-2);
+  text-decoration: underline;
+}
+
+/* =========================================
+   Bottoni
+   ========================================= */
+
+/* Brand button (consigliato) */
+.btn-brand{
+  --bs-btn-color: #000;
+  --bs-btn-bg: var(--brand-accent);
+  --bs-btn-border-color: var(--brand-accent);
+  --bs-btn-hover-bg: var(--brand-accent-2);
+  --bs-btn-hover-border-color: var(--brand-accent-2);
+  --bs-btn-focus-shadow-rgb: 0, 208, 132;
+}
+
+/* (Opzionale) Re-skin del .btn-primary in verde.
+   Se non vuoi impattare i primary globali, commenta questo blocco. */
+.btn-primary {
+  background-color: var(--brand-green-700);
+  border-color: var(--brand-green-700);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--brand-green-600);
+  border-color: var(--brand-green-600);
+}
+
+/* Outline secondary più elegante su dark */
+.btn-outline-secondary {
+  color: #cfe0ef;
+  border-color: rgba(255,255,255,0.18);
+  background-color: transparent;
+}
+.btn-outline-secondary:hover {
+  background-color: #1b2028;
+  border-color: rgba(255,255,255,0.28);
+}
+
+/* =========================================
+   Card / contenitori / ombre
+   ========================================= */
+.card-neo { background: var(--card-bg); border: 1px solid var(--card-border); }
+.shadow-soft { box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+
+/* Effetto vetro (pagine auth) */
+.card.card-glass {
+  background: rgba(24, 27, 34, 0.8);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(0, 208, 132, 0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+/* Card auth: micro-animazione */
+.card-auth { transition: transform .15s ease, box-shadow .15s ease; }
+.card-auth:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.4); }
+
+/* Wrapper DTO debug (se lo usi come box) */
+.box-neo {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: .5rem;
+}
+
+/* =========================================
+   Hero / sezioni / breadcrumb
+   ========================================= */
+.page-hero{
+  background: linear-gradient(135deg, rgba(40,199,111,.15), rgba(40,199,111,0) 60%);
+  border: 1px solid var(--card-border);
+  border-radius: .75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.page-hero .title-dot{
+  width: .6rem; height: .6rem; border-radius: 999px;
+  background: var(--brand-accent);
+  display: inline-block; margin-right: .5rem;
+  box-shadow: 0 0 12px var(--brand-accent);
+}
+
+/* Etichetta sezione */
+.section-label{
+  display: inline-block;
+  background: rgba(40,199,111,.12);
+  color: var(--brand-accent);
+  border: 1px solid rgba(40,199,111,.25);
+  padding: .25rem .6rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 600;
+  margin-bottom: .75rem;
+}
+
+/* Breadcrumb più discreti su dark */
+.breadcrumb .breadcrumb-item + .breadcrumb-item::before{
+  color: var(--muted);
+}
+.breadcrumb .breadcrumb-item a{
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+.breadcrumb .breadcrumb-item a:hover{
+  text-decoration: underline;
+}
+
+/* =========================================
+   Form / focus / feedback
+   ========================================= */
+.form-label {
+  color: #cfe8dd;
+  font-weight: 500;
+}
+
+/* >>> BORDI VERDI: stato normale/hover/focus <<< */
+.form-control,
+.form-select {
+  background-color: #14171d;
+  border-color: rgba(0, 208, 132, 0.35); /* verde visibile già in idle */
+  color: var(--bs-body-color);
+}
+.form-control:hover,
+.form-select:hover {
+  border-color: rgba(0, 208, 132, 0.55);
+}
+.form-control::placeholder {
+  color: rgba(230,238,245,0.55);
+}
+.form-control:focus,
+.form-select:focus {
+  background-color: #161a21;
+  border-color: var(--brand-accent) !important;
+  box-shadow: 0 0 0 .2rem rgba(0,208,132,.18) !important;
+  color: #fff;
+}
+
+/* Input invalid su dark: bordo rosso solo quando realmente invalid */
+.is-invalid.form-control,
+.is-invalid .form-control {
+  border-color: #dc3545 !important;
+}
+.invalid-feedback { color: #ff7b86; } /* tono soft; compare solo con .is-invalid */
+
+/* Check/radio su dark */
+.form-check-input {
+  background-color: #1a1f27;
+  border-color: rgba(255,255,255,0.18);
+}
+.form-check-input:checked {
+  background-color: var(--brand-green-700);
+  border-color: var(--brand-green-700);
+}
+
+/* =========================================
+   Divider / separatori
+   ========================================= */
+hr {
+  border: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0,208,132,0.65), rgba(0,208,132,0.15));
+  border-radius: 2px;
+}
+
+/* =========================================
+   Barra di stato invio (RegisterPage)
+   ========================================= */
+.submit-bar{
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand-accent), transparent);
+  background-size: 200px 100%;
+}
+.submit-bar.running{ animation: loading 1.2s linear infinite; }
+@keyframes loading { from { background-position:-200px 0; } to { background-position:200px 0; } }
+
+/* =========================================
+   Sfondo auth — Variante B (overlay sopra al body)
+   ========================================= */
+
+.app-shell {
+  background: transparent !important;
+}
+
+.auth-bg {
+  position: relative;       /* crea stacking context per i figli */
+  min-height: 100vh;
+}
+
+/* Overlay sfumato che resta sopra al pattern del body */
+.auth-bg::before {
+  content: none;
+  /* content: "";
+  position: fixed;          
+  inset: 0;
+  pointer-events: none;     
+  z-index: 0;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(0,208,132,0.15), transparent 60%),
+    radial-gradient(1200px 600px at 110% 10%, rgba(0,208,132,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.25)); */
+}
+
+/* Assicura che il contenuto resti sopra l’overlay */
+.auth-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================
+   Sidebar (nera con bordo/alone verde + link verdi)
+   ========================================= */
+
+.sidebar-col {
+  padding:0;
+  background: transparent;
+}
+
+.sidebar-col .sidebar-wrap {
+  min-height: 100%;
+}
+
+.sidebar-wrap{
+  /*background: #07090c;*/
+  background: rgba(7, 9, 12, 0.90);
+  border-right: 1px solid transparent;
+  position: relative;
+}
+.sidebar-wrap::after{
+  content: "";
+  position: absolute; top: 0; right: -1px; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, rgba(0,208,132,0.5), rgba(0,208,132,0.1));
+  border-radius: 2px;
+  z-index:1;
+}
+.sidebar-link{
+  color: rgba(0, 208, 132, 0.85) !important;
+  border: 1px solid transparent;
+  border-radius: .5rem;
+}
+.sidebar-link:hover{
+  background: rgba(0,208,132,0.08);
+  border-color: rgba(0,208,132,0.25);
+  color: #00d084 !important;
+}
+.sidebar-link.active{
+  background: rgba(0,208,132,0.18);
+  border-color: rgba(0,208,132,0.45);
+  color: #00d084 !important;
+  font-weight: 600;
+}
+
+/* =========================================
+   Utility
+   ========================================= */
+.text-brand{ color: var(--brand-accent) !important; }
+.border-brand{ border-color: rgba(0,208,132,0.25) !important; }
+.text-muted{ color: var(--muted) !important; }
+
+/* Riduzione animazioni per accessibilità */
+@media (prefers-reduced-motion: reduce){
+  .card-auth,
+  .submit-bar.running { animation: none !important; transition: none !important; }
+}
+
+/* Divisore uniforme verde sfumato (usalo con <hr class="section-hr">) */
+hr.section-hr{
+  border: none;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(0,208,132,.65),
+    rgba(0,208,132,.28) 30%,
+    rgba(0,208,132,.28) 70%,
+    rgba(0,208,132,.65)
+  );
+  box-shadow: 0 0 8px rgba(0,208,132,.22);
+  margin: 1rem 0 1.25rem;
+}
+
+/* Safety: se per caso rimane in markup una submit-bar, non mostrarla se non "running" */
+.submit-bar { display: none; }
+.submit-bar.running { display: block; }
+
+/* Evita bordi tratteggiati su <hr> ereditati da reset/temi aggressivi */
+hr { border-top-style: solid; }
+
+/* ===== Navbar nero + bordo tratteggiato verde ===== */
+.navbar-neo {
+  background-color: var(--surface-0); /* nero del tema */
+  border-bottom: 2px dashed rgba(0,208,132,.6); /* verde tratteggiato */
+}
+
+.navbar-neo .navbar-brand,
+.navbar-neo .nav-link {
+  color: #e6eef5;              /* testo chiaro */
+}
+.navbar-neo .nav-link:hover,
+.navbar-neo .nav-link:focus {
+  color: var(--brand-accent);  /* verde al passaggio */
+  text-decoration: none;
+}
+
+/* stato attivo più evidente */
+.navbar-neo .nav-link.active {
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+/* opzionale: lieve glow sotto la navbar */
+.navbar-neo {
+  box-shadow: 0 2px 0 rgba(0,208,132,.12);
+}

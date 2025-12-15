@@ -8,31 +8,64 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Firebase\JWT\JWT;
+use App\Rules\ValidFiscalCode; // attiva la tua rule
 
 class AuthController extends Controller
 {
-    // Registrazione utente
+    // -------------------- REGISTER --------------------
     public function register(Request $request)
     {
+        // 1) valida formati/base: niente unique su email (è cifrata), l'unicità la facciamo su hash_email
         $request->validate([
-            'name'     => 'required|string|max:255',
-            'surname'  => 'required|string|max:255',
-            'email'    => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
+            // OBBLIGATORI (personali)
+            'name'           => 'required|string|max:255',
+            'surname'        => 'required|string|max:255',
+            'email'          => 'required|string|email|max:255',
+            'password'       => 'required|string|min:8|confirmed',
+            'birth_date'     => 'required|date',
+            'gender'         => ['required', Rule::in(['M','F'])],
+            'birth_city'     => 'required|string|max:255',
+            'birth_province' => 'required|string|max:3',
+            'fiscal_code'    => [
+                'required',
+                'string',
+                'size:16',
+                new ValidFiscalCode(),                    // <-- verifica CF (checksum)
+                Rule::unique('user_profiles','fiscal_code'), // <-- univoco a livello profilo
+            ],
+            // OPZIONALI (residenza + extra)
+            'display_name'   => 'nullable|string|max:255',
+            'phone'          => 'nullable|string|max:32',
+            'street'         => 'nullable|string|max:255',
+            'city'           => 'nullable|string|max:255',
+            'province'       => 'nullable|string|max:64',
+            'postal_code'    => 'nullable|string|max:16',
+            'country'        => 'nullable|string|max:64',
         ]);
+
+        // 2) calcolo hash per vincoli/ricerche
+        $hashEmail   = hash('sha256', strtolower(trim($request->email)));
+        $hashName    = hash('sha256', strtolower(trim($request->name)));
+        $hashSurname = hash('sha256', strtolower(trim($request->surname)));
+
+        // 3) unicità su hash_email
+        $exists = DB::table('users')->where('hash_email', $hashEmail)->exists();
+        if ($exists) {
+            return response()->json([
+                'errors' => ['email' => ['Email già registrata']]
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {
+            // cifratura dei campi sensibili in users
             $cryptedName    = Crypt::encryptString($request->name);
             $cryptedSurname = Crypt::encryptString($request->surname);
             $cryptedEmail   = Crypt::encryptString($request->email);
 
-            $hashEmail      = hash('sha256', strtolower(trim($request->email)));
-            $hashName       = hash('sha256', strtolower(trim($request->name)));
-            $hashSurname    = hash('sha256', strtolower(trim($request->surname)));
-
-            // 1. Crea utente in users
+            // users
             $user = User::create([
                 'name'         => $cryptedName,
                 'surname'      => $cryptedSurname,
@@ -43,31 +76,34 @@ class AuthController extends Controller
                 'role'         => 'Guest',
             ]);
 
-            // 2. Genera salt e hash
-            $salt = bin2hex(random_bytes(32));
-            $hash = hash('sha256', $request->password . $salt);
+            // user_passwords
+            if (Schema::hasTable('user_passwords')) {
+                $salt = bin2hex(random_bytes(32));
+                $hash = hash('sha256', $request->password . $salt);
+                DB::table('user_passwords')->insert($this->filterColumns('user_passwords', [
+                    'user_id'       => $user->id,
+                    'password_hash' => $hash,
+                    'salt'          => $salt,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]));
+            }
 
-            // 3. Inserisci in user_passwords
-            DB::table('user_passwords')->insert([
-                'user_id'       => $user->id,
-                'password_hash' => $hash,
-                'salt'          => $salt,
-                'created_at'    => now(),
-            ]);
+            // user_login_data (secret_jwt → QUI)
+            if (Schema::hasTable('user_login_data')) {
+                $secretJwt = bin2hex(random_bytes(32));
+                DB::table('user_login_data')->updateOrInsert(
+                    ['user_id' => $user->id],
+                    $this->filterColumns('user_login_data', [
+                        'secret_jwt' => $secretJwt,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ])
+                );
+            }
 
-            // 4. Crea secret JWT utente
-            $secretJwt = bin2hex(random_bytes(32));
-            DB::table('user_login_data')->insert(
-                $this->filterColumns('user_login_data', [
-                    'user_id'    => $user->id,
-                    'secret_jwt' => $secretJwt,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])
-            );
-
-            // 5. Inizializza User_auth
-            if (DB::getSchemaBuilder()->hasTable('User_auth')) {
+            // User_auth (solo metadati login/lock) – NIENTE secret_jwt qui
+            if (Schema::hasTable('User_auth')) {
                 DB::table('User_auth')->updateOrInsert(
                     ['id_user' => $user->id],
                     $this->filterColumns('User_auth', [
@@ -81,90 +117,111 @@ class AuthController extends Controller
                 );
             }
 
+            // user_profiles (dati personali e residenza opzionale)
+            if (Schema::hasTable('user_profiles')) {
+                DB::table('user_profiles')->updateOrInsert(
+                    ['id_user' => $user->id],
+                    $this->filterColumns('user_profiles', [
+                        'first_name'      => $request->name,
+                        'last_name'       => $request->surname,
+                        'display_name'    => $request->input('display_name') ?: ($request->name.' '.$request->surname),
+                        'birth_date'      => $request->birth_date,
+                        'gender'          => $request->gender,
+                        'birth_city'      => $request->birth_city,
+                        'birth_province'  => substr(strtoupper($request->birth_province), 0, 2), // <- sigla 2
+                        'fiscal_code'     => strtoupper($request->fiscal_code),
+                        // residenza opzionale
+                        'phone'        => $request->input('phone'),
+                        'street'       => $request->input('street'),
+                        'city'         => $request->input('city'),
+                        'province'     => $request->input('province') ? substr(strtoupper($request->input('province')), 0, 2) : null, // <- sigla 2 se presente
+                        'postal_code'  => $request->input('postal_code'),
+                        'country'      => $request->input('country'),
+                        'locale'       => 'it',
+                        'timezone'     => 'Europe/Rome',
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
+                    ])
+                );
+            }
+
             DB::commit();
             return response()->json(['message' => 'Utente registrato con successo'], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Errore durante la registrazione:', [$e->getMessage()]);
+            Log::error('Errore durante la registrazione', ['ex' => $e]);
+            // in dev mostra il dettaglio
+            if (app()->environment('local')) {
+                return response()->json([
+                    'error'  => 'Errore durante la registrazione',
+                    'detail' => $e->getMessage(),
+                    'file'   => $e->getFile(),
+                    'line'   => $e->getLine(),
+                ], 500);
+            }
             return response()->json(['error' => 'Errore durante la registrazione'], 500);
         }
     }
 
-    // Login "vero"
+    // -------------------- LOGIN --------------------
     public function login(Request $request)
     {
         $request->validate([
-            'email'                    => 'required|string|email',
-            'password'                 => 'required|string',
-            'password_entry_duration'  => 'nullable|integer|min:0',
+            'email'                   => 'required|string|email',
+            'password'                => 'required|string',
+            'password_entry_duration' => 'nullable|integer|min:0',
         ]);
 
         $hashEmail = hash('sha256', strtolower(trim($request->email)));
-        $user = User::where('hash_email', $hashEmail)->first();
-        if (!$user) {
-            return response()->json(['error' => 'Credenziali non valide'], 401);
-        }
-
         $maxAttempts = $this->getMaxLoginAttempts();
 
-        // Lockout via User_auth (fallback login_tests)
-        if (DB::getSchemaBuilder()->hasTable('User_auth')) {
-            $authRow = DB::table('User_auth')->where('id_user', $user->id)->first();
-            if (!$authRow) {
-                DB::table('User_auth')->insert(
-                    $this->filterColumns('User_auth', [
-                        'id_user'         => $user->id,
-                        'email_hash'      => $hashEmail,
-                        'secret_jwt_token'=> null,
-                        'failed_attempts' => 0,
-                        'locked_at'       => null,
-                        'created_at'      => now(),
-                        'updated_at'      => now(),
-                    ])
-                );
-                $authRow = (object)['failed_attempts' => 0, 'locked_at' => null];
+        // 1) se esiste User_auth, usiamolo come fonte primaria
+        $authRow = Schema::hasTable('User_auth')
+            ? DB::table('User_auth')->where('email_hash', $hashEmail)->first()
+            : null;
+
+        // fallback: cerca l'utente nei users via hash_email
+        if (!$authRow) {
+            $user = User::where('hash_email', $hashEmail)->first();
+            if (!$user) {
+                return response()->json(['error' => 'Credenziali non valide'], 401);
             }
+        } else {
+            $user = User::find($authRow->id_user);
+            if (!$user) {
+                return response()->json(['error' => 'Utente mancante'], 401);
+            }
+            // lock/attempts se User_auth presente
             $locked = ($authRow->locked_at !== null) || ((int)$authRow->failed_attempts >= $maxAttempts);
             if ($locked) {
                 return response()->json(['error' => 'Account bloccato per troppi tentativi.'], 423);
             }
-        } else {
-            $test = DB::table('login_tests')->where('user_id', $user->id)->first();
-            if ($test && $test->attempt_count >= $maxAttempts) {
-                return response()->json(['error' => 'Troppi tentativi. Riprova più tardi.'], 429);
-            }
         }
 
-        // Verifica password con salt
+        // verifica password
         $passRow = DB::table('user_passwords')->where('user_id', $user->id)->first();
         if (!$passRow) {
-            $this->updateLoginTests($user->id, $request->input('password_entry_duration'), true);
             $this->updateUserAuthAttempts($user->id, $maxAttempts, true);
+            $this->updateLoginTests($user->id, $request->input('password_entry_duration'), true);
             return response()->json(['error' => 'Credenziali non valide'], 401);
         }
 
         $inputHash = hash('sha256', $request->password . $passRow->salt);
-
-        Log::info('LOGIN DEBUG', [
-            'input_password' => $request->password,
-            'db_salt'        => $passRow->salt,
-            'db_hash'        => $passRow->password_hash,
-            'calc_hash'      => $inputHash,
-        ]);
-
         if (!hash_equals($inputHash, (string)$passRow->password_hash)) {
-            $this->updateLoginTests($user->id, $request->input('password_entry_duration'), true);
             $this->updateUserAuthAttempts($user->id, $maxAttempts, true);
+            $this->updateLoginTests($user->id, $request->input('password_entry_duration'), true);
             return response()->json(['error' => 'Credenziali non valide'], 401);
         }
 
-        // Successo: reset tentativi
-        $this->updateLoginTests($user->id, $request->input('password_entry_duration'), false);
+        // reset tentativi
         $this->updateUserAuthAttempts($user->id, $maxAttempts, false);
+        $this->updateLoginTests($user->id, $request->input('password_entry_duration'), false);
 
-        // JWT + persistenze
+        // firma JWT usando secret_jwt in user_login_data
         $jwt = $this->issueJwt($user);
-        $this->persistAuthArtifacts($user->id, $jwt, $request); // user_tokens, session, fingerprint, access log
+
+        // persistenze (token log, sessione, fingerprint)
+        $this->persistAuthArtifacts($user->id, $jwt, $request);
 
         return response()->json([
             'token' => $jwt,
@@ -177,50 +234,31 @@ class AuthController extends Controller
         ], 200);
     }
 
-    // --- TEST LOGIN HASH-ONLY (hardcoded) -----------------------------------
+    // -------------------- TEST LOGIN (LOCAL) --------------------
     public function testLoginHashOnly()
     {
         if (!app()->environment('local')) {
-            return response()->json(['error' => 'Not allowed in this environment'], 403);
+            return response()->json(['error' => 'Not allowed'], 403);
         }
 
-        // ======= DATI PER TEST (HASH-ONLY) =======
         $TEST_HASH_EMAIL    = 'INSERISCI_SHA256_LOWER_TRIM_EMAIL';
         $TEST_PASSWORD_HASH = 'INSERISCI_SHA256_PASSWORD_PLUS_SALT';
         $TEST_SALT          = 'INSERISCI_SALT';
-        // =========================================
-
-        $now = now();
 
         $user = User::where('hash_email', $TEST_HASH_EMAIL)->first();
         if (!$user) {
-            return response()->json(['error' => 'Utente non trovato (hash_email)'], 404);
+            return response()->json(['error' => 'Utente non trovato (users.hash_email)'], 404);
         }
 
         $maxAttempts = $this->getMaxLoginAttempts();
 
-        // Lockout
-        if (DB::getSchemaBuilder()->hasTable('User_auth')) {
+        if (Schema::hasTable('User_auth')) {
             $authRow = DB::table('User_auth')->where('id_user', $user->id)->first();
-            if (!$authRow) {
-                DB::table('User_auth')->updateOrInsert(
-                    ['id_user' => $user->id],
-                    $this->filterColumns('User_auth', [
-                        'email_hash'      => $TEST_HASH_EMAIL,
-                        'failed_attempts' => 0,
-                        'locked_at'       => null,
-                        'created_at'      => $now,
-                        'updated_at'      => $now,
-                    ])
-                );
-                $authRow = DB::table('User_auth')->where('id_user', $user->id)->first();
-            }
-            if (($authRow->locked_at !== null) || ((int)$authRow->failed_attempts >= $maxAttempts)) {
+            if ($authRow && (($authRow->locked_at !== null) || ((int)$authRow->failed_attempts >= $maxAttempts))) {
                 return response()->json(['error' => 'Account bloccato per troppi tentativi.'], 423);
             }
         }
 
-        // Challenge: salt + hash devono combaciare
         $passRow = DB::table('user_passwords')->where('user_id', $user->id)->first();
         $match = $passRow
             && hash_equals((string)$passRow->salt, (string)$TEST_SALT)
@@ -232,11 +270,9 @@ class AuthController extends Controller
             return response()->json(['error' => 'Credenziali non valide'], 401);
         }
 
-        // Successo: reset tentativi
         $this->updateUserAuthAttempts($user->id, $maxAttempts, false);
         $this->updateLoginTests($user->id, null, false);
 
-        // JWT + persistenze
         $jwt = $this->issueJwt($user);
         $this->persistAuthArtifacts($user->id, $jwt, request());
 
@@ -248,13 +284,11 @@ class AuthController extends Controller
                 'surname' => $user->surname,
                 'role'    => $user->role,
             ],
-            'note'  => 'Login di test (hash_email + password_hash + salt). Usa il token come Bearer.',
+            'note'  => 'Login di test.',
         ], 200);
     }
-    // ------------------------------------------------------------------------
 
-    // ---------------- HELPER PRIVATI ----------------------------------------
-
+    // -------------------- HELPERS --------------------
     /** Evita errori di colonne mancanti */
     private function filterColumns(string $table, array $data): array
     {
@@ -263,13 +297,11 @@ class AuthController extends Controller
         return array_intersect_key($data, array_flip($cols));
     }
 
-    /** Cap a 3: legge da Rules ma non supera mai 3 */
+    /** Cap a 3 tentativi */
     private function getMaxLoginAttempts(): int
     {
         try {
-            $val = (int) (DB::table('Rules')
-                ->where('rule_key', 'max_login_attempts')
-                ->value('rule_value') ?? 3);
+            $val = (int) (DB::table('Rules')->where('rule_key', 'max_login_attempts')->value('rule_value') ?? 3);
         } catch (\Throwable $e) {
             $val = 3;
         }
@@ -277,11 +309,13 @@ class AuthController extends Controller
         return min($val, 3);
     }
 
-    /** Aggiorna login_tests (retro-compat) */
-    private function updateLoginTests($userId, $passwordEntryDuration = null, $failed = false)
+    /** Retro-compat login_tests */
+    private function updateLoginTests($userId, $passwordEntryDuration = null, $failed = false): void
     {
+        if (!DB::getSchemaBuilder()->hasTable('login_tests')) return;
+
         $test = DB::table('login_tests')->where('user_id', $userId)->first();
-        $now = now();
+        $now  = now();
 
         if ($test) {
             $attempt_count = $failed ? min($test->attempt_count + 1, 3) : 0;
@@ -300,48 +334,55 @@ class AuthController extends Controller
         }
     }
 
-    /** Aggiorna tentativi/lock su User_auth con soglia */
+    /** Gestione tentativi/lock su User_auth */
     private function updateUserAuthAttempts(int $userId, int $maxAttempts, bool $failed): void
     {
         if (!DB::getSchemaBuilder()->hasTable('User_auth')) return;
 
-        $row = DB::table('User_auth')->where('id_user', $userId)->lockForUpdate()->first();
-        $now = now();
+        DB::transaction(function () use ($userId, $maxAttempts, $failed) {
+            $row = DB::table('User_auth')->where('id_user', $userId)->lockForUpdate()->first();
+            $now = now();
 
-        if (!$row) {
-            DB::table('User_auth')->insert([
-                'id_user'         => $userId,
-                'email_hash'      => DB::table('users')->where('id', $userId)->value('hash_email') ?? bin2hex(random_bytes(32)),
-                'secret_jwt_token'=> null,
-                'failed_attempts' => $failed ? 1 : 0,
-                'locked_at'       => null,
-                'created_at'      => $now,
-                'updated_at'      => $now,
-            ]);
-            return;
-        }
-
-        if ($failed) {
-            $next = min(((int)$row->failed_attempts) + 1, $maxAttempts);
-            $payload = ['failed_attempts' => $next, 'updated_at' => $now];
-            if ($next >= $maxAttempts) {
-                $payload['locked_at'] = $now;
+            if (!$row) {
+                // prendi hash_email dalla tabella users
+                $emailHash = DB::table('users')->where('id', $userId)->value('hash_email') ?? bin2hex(random_bytes(32));
+                DB::table('User_auth')->insert($this->filterColumns('User_auth', [
+                    'id_user'         => $userId,
+                    'email_hash'      => $emailHash,
+                    'secret_jwt_token'=> null,
+                    'failed_attempts' => $failed ? 1 : 0,
+                    'locked_at'       => null,
+                    'created_at'      => $now,
+                    'updated_at'      => $now,
+                ]));
+                return;
             }
-            DB::table('User_auth')->where('id', $row->id)->update($this->filterColumns('User_auth', $payload));
-        } else {
-            DB::table('User_auth')->where('id', $row->id)->update([
-                'failed_attempts' => 0,
-                'locked_at'       => null,
-                'updated_at'      => $now,
-            ]);
-        }
+
+            if ($failed) {
+                $next = min(((int)$row->failed_attempts) + 1, $maxAttempts);
+                $payload = ['failed_attempts' => $next, 'updated_at' => $now];
+                if ($next >= $maxAttempts) {
+                    $payload['locked_at'] = $now;
+                }
+                DB::table('User_auth')->where('id', $row->id)->update($this->filterColumns('User_auth', $payload));
+            } else {
+                DB::table('User_auth')->where('id', $row->id)->update([
+                    'failed_attempts' => 0,
+                    'locked_at'       => null,
+                    'updated_at'      => $now,
+                ]);
+            }
+        });
     }
 
-    /** Genera (o crea secret e poi genera) un JWT per l'utente */
+    /** Firma JWT con secret_jwt da user_login_data */
     private function issueJwt(User $user): string
     {
-        $secretRow = DB::table('user_login_data')->where('user_id', $user->id)->first();
-        if (!$secretRow) {
+        $ttl = (int) env('JWT_TTL', 3600);
+        $now = time();
+
+        $row = DB::table('user_login_data')->where('user_id', $user->id)->first();
+        if (!$row || empty($row->secret_jwt)) {
             $secretJwt = bin2hex(random_bytes(32));
             DB::table('user_login_data')->updateOrInsert(
                 ['user_id' => $user->id],
@@ -352,56 +393,62 @@ class AuthController extends Controller
                 ])
             );
         } else {
-            $secretJwt = $secretRow->secret_jwt;
+            $secretJwt = $row->secret_jwt;
         }
 
         $payload = [
-            'sub'   => $user->id,
-            'email' => $user->email, // accessor: decriptata
-            'iat'   => time(),
-            'exp'   => time() + 3600,
+            'sub' => $user->id,
+            'iat' => $now,
+            'nbf' => $now - 5,
+            'exp' => $now + $ttl,
         ];
 
-        return JWT::encode($payload, $secretJwt, 'HS256');
+        return JWT::encode($payload, (string) $secretJwt, 'HS256');
     }
 
-    /** Salva token, sessione, fingerprint e log accesso */
+    /** Persistenza token/log/sessione/fingerprint */
     private function persistAuthArtifacts(int $userId, string $jwt, Request $req): void
     {
-        // user_tokens
-        DB::table('user_tokens')->insert($this->filterColumns('user_tokens', [
+        // user_tokens (log token)
+        $ut = $this->filterColumns('user_tokens', [
             'user_id'   => $userId,
             'jwt_token' => $jwt,
             'issued_at' => now(),
-        ]));
+        ]);
+        if (!empty($ut)) {
+            DB::table('user_tokens')->insert($ut);
+        }
 
-        // User_session (fingerprint)
+        // User_session (fingerprint sessione)
         if (DB::getSchemaBuilder()->hasTable('User_session')) {
-            DB::table('User_session')->insert($this->filterColumns('User_session', [
+            $us = $this->filterColumns('User_session', [
                 'id_user'         => $userId,
                 'token'           => hash('sha256', $jwt),
                 'inizio_sessione' => now(),
                 'fine_sessione'   => null,
                 'created_at'      => now(),
                 'updated_at'      => now(),
-            ]));
+            ]);
+            if (!empty($us)) {
+                DB::table('User_session')->insert($us);
+            }
         }
 
-        // User_auth: ultimo token fingerprint
+        // Fingerprint ultimo token su User_auth (se c'è la colonna)
         if (DB::getSchemaBuilder()->hasTable('User_auth') && Schema::hasColumn('User_auth', 'secret_jwt_token')) {
-            DB::table('User_auth')
-                ->where('id_user', $userId)
-                ->update($this->filterColumns('User_auth', [
-                    'secret_jwt_token' => hash('sha256', $jwt),
-                    'updated_at'       => now(),
-                ]));
+            $ua = $this->filterColumns('User_auth', [
+                'secret_jwt_token' => hash('sha256', $jwt),
+                'updated_at'       => now(),
+            ]);
+            if (!empty($ua)) {
+                DB::table('User_auth')->where('id_user', $userId)->update($ua);
+            }
         }
 
         // Access log
         $this->logUserAccess($userId, $req);
     }
 
-    /** Log su User_Access (unique: id_user+ip+user_agent) */
     private function logUserAccess(int $userId, Request $req): void
     {
         if (!DB::getSchemaBuilder()->hasTable('User_Access')) return;
@@ -433,12 +480,5 @@ class AuthController extends Controller
             ]);
         }
     }
-
-    // Recupera utenti (admin)
-    public function listUsers()
-    {
-        $users = User::select('id', 'name', 'surname', 'email', 'role', 'created_at')->get();
-        Log::info('Utenti recuperati:', ['users' => $users]);
-        return response()->json($users, 200);
-    }
 }
+
